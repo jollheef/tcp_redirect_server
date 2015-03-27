@@ -33,11 +33,11 @@
  */
 #ifdef DEBUG
 #define CHECK_ERRNO(e, m)				\
-  perror(m); if (-1 == e) { exit(EXIT_FAILURE); }
+	perror(m); if (-1 == e) { exit(EXIT_FAILURE); }
 #define DBG_printf(fmt, arg...) printf(fmt, ##arg)
 #else
 #define CHECK_ERRNO(e, m)				\
-  if (-1 == e) { perror(m); exit(EXIT_FAILURE); }
+	if (-1 == e) { perror(m); exit(EXIT_FAILURE); }
 #define DBG_printf(fmt, arg...)
 #endif
 
@@ -93,11 +93,10 @@ pthread_mutex_t init_connection_lock = PTHREAD_MUTEX_INITIALIZER;
 /**
  * Структура, описывающая соединение.
  */
-struct connection_vars_t
-{
-  long long int n;	   /* Номер соединения */
-  int sockfd;		   /* Дескриптор сокета клиента */
-  struct sockaddr_in addr; /* Описание адрес:порт соединения клиента.*/
+struct connection_vars_t {
+	long long int n;	   /* Номер соединения */
+	int sockfd;		   /* Дескриптор сокета клиента */
+	struct sockaddr_in addr; /* Описание адрес:порт соединения клиента.*/
 };
 
 /**
@@ -108,10 +107,10 @@ struct connection_vars_t
 void
 dump_connection_vars (IN struct connection_vars_t* conn)
 {
-  printf ("Номер соединения: %lld\t|", conn->n);
-  printf ("Дескриптор сокета клиента: %d\t|", conn->sockfd);
-  printf ("Описание соединения клиента: %s:%d\n",
-          inet_ntoa (conn->addr.sin_addr), conn->addr.sin_port);
+	printf ("Номер соединения: %lld\t|", conn->n);
+	printf ("Дескриптор сокета клиента: %d\t|", conn->sockfd);
+	printf ("Описание соединения клиента: %s:%d\n",
+		inet_ntoa (conn->addr.sin_addr), conn->addr.sin_port);
 }
 
 /**
@@ -123,15 +122,13 @@ struct connection_vars_t* current_connections[HANDLE_CONNECTIONS_COUNT];
  * Вывод состояния сохраненных соединений в стандартный вывод.
  */
 void
-dump_connections ()
+dump_connections (void)
 {
-  for (int i = 0; i < HANDLE_CONNECTIONS_COUNT; ++i)
-    {
-      if (NULL != current_connections[i])
-	{
-	  dump_connection_vars(current_connections[i]);
+	for (int i = 0; i < HANDLE_CONNECTIONS_COUNT; ++i) {
+		if (NULL != current_connections[i]) {
+			dump_connection_vars (current_connections[i]);
+		}
 	}
-    }
 }
 
 /**
@@ -142,23 +139,21 @@ dump_connections ()
 int
 save_conn (IN struct connection_vars_t* conn)
 {
-  int status = 1;
+	int status = 1;
 
-  for (int i = 0; i < HANDLE_CONNECTIONS_COUNT; ++i)
-    {
-      if (NULL == current_connections[i])
-        {
-	  TRACE;
+	for (int i = 0; i < HANDLE_CONNECTIONS_COUNT; ++i) {
+		if (NULL == current_connections[i]) {
+			TRACE;
 
-          current_connections[i] = conn;
+			current_connections[i] = conn;
 
-          status = 0;
+			status = 0;
 
-          break;
-        }
-    }
+			break;
+		}
+	}
 
-  return status;
+	return status;
 }
 
 /**
@@ -169,72 +164,69 @@ save_conn (IN struct connection_vars_t* conn)
 void
 remove_conn (IN struct connection_vars_t* conn)
 {
-  for (int i = 0; i < HANDLE_CONNECTIONS_COUNT; ++i)
-    {
-      if (NULL != current_connections[i])
-        {
-          TRACE;
+	for (int i = 0; i < HANDLE_CONNECTIONS_COUNT; ++i) {
+		if (NULL != current_connections[i]) {
+			TRACE;
 
-          if (conn->n == current_connections[i]->n)
-            {
-              TRACE;
-              current_connections[i] = NULL;
-              return;
-            }
-        }
-    }
+			if (conn->n == current_connections[i]->n) {
+				TRACE;
+				current_connections[i] = NULL;
+				return;
+			}
+		}
+	}
 
-  fprintf (stderr, "Connection not found\n");
+	fprintf (stderr, "Connection not found\n");
 }
 
 /**
  * Получить количество свободных мест в массиве соединений.
  */
 int
-get_free_places ()
+get_free_places (void)
 {
-  int places = 0;
+	int places = 0;
 
-  for (int i = 0; i < HANDLE_CONNECTIONS_COUNT; ++i)
-    {
-      if (NULL == current_connections[i])
-        {
-          ++places;
-        }
-    }
+	for (int i = 0; i < HANDLE_CONNECTIONS_COUNT; ++i) {
+		if (NULL == current_connections[i]) {
+			++places;
+		}
+	}
 
-  return places;
+	return places;
 }
 
 
 /**
  * Закрыть и очистить память для всех текущих соединений.
  */
-void
-free_all_conn()
+void free_all_conn (void)
 {
-  for (int i = 0; i < HANDLE_CONNECTIONS_COUNT; ++i)
-    {
-      if (NULL != current_connections[i])
-        {
-          struct connection_vars_t* connection = current_connections[i];
+	for (int i = 0; i < HANDLE_CONNECTIONS_COUNT; ++i) {
+		if (NULL == current_connections[i]) {
+			continue;
+		}
+
+		struct connection_vars_t* connection = current_connections[i];
+
 #ifdef DEBUG
-          dump_connection_vars (connection);
+		dump_connection_vars (connection);
+
 #endif
-          int status = shutdown (connection->sockfd, SHUT_RDWR);
+		int status = shutdown (connection->sockfd, SHUT_RDWR);
 
-          CHECK_ERRNO (status, "Shutdown connection");
+		CHECK_ERRNO (status, "Shutdown connection");
 
-          status = close (connection->sockfd);
+		status = close (connection->sockfd);
 
-          CHECK_ERRNO (status, "Close connection");
+		CHECK_ERRNO (status, "Close connection");
 
-          connections -= 1;
+		connections -= 1;
 
-          free (current_connections[i]);
-          current_connections[i] = NULL;
-        }
-    }
+		free (current_connections[i]);
+
+		current_connections[i] = NULL;
+	}
 }
 
 /**
@@ -245,29 +237,29 @@ free_all_conn()
  */
 void* handler (IN struct connection_vars_t* connection)
 {
-  TRACE;
+	TRACE;
 
-  pthread_mutex_lock (&connections_lock);
-  connections += 1;
-  pthread_mutex_unlock (&connections_lock);
+	pthread_mutex_lock (&connections_lock);
+	connections += 1;
+	pthread_mutex_unlock (&connections_lock);
 
-  sleep (1);			/* TTTTTTTTTTTTTTTTTTT */
+	sleep (1);			/* TTTTTTTTTTTTTTTTTTT */
 
-  int status = shutdown (connection->sockfd, SHUT_RDWR);
+	int status = shutdown (connection->sockfd, SHUT_RDWR);
 
-  CHECK_ERRNO (status, "Shutdown connection");
+	CHECK_ERRNO (status, "Shutdown connection");
 
-  status = close (connection->sockfd);
+	status = close (connection->sockfd);
 
-  CHECK_ERRNO (status, "Close connection");
+	CHECK_ERRNO (status, "Close connection");
 
-  pthread_mutex_lock (&connections_lock);
-  TRACE;
-  remove_conn (connection);
-  free (connection);
-  connections -= 1;
-  TRACE;
-  pthread_mutex_unlock (&connections_lock);
+	pthread_mutex_lock (&connections_lock);
+	TRACE;
+	remove_conn (connection);
+	free (connection);
+	connections -= 1;
+	TRACE;
+	pthread_mutex_unlock (&connections_lock);
 }
 
 /**
@@ -278,110 +270,106 @@ void* handler (IN struct connection_vars_t* connection)
  */
 int
 connections_loop (
-		  IN int server_sockfd,
-		  IN void * (*_handler) (struct connection_vars_t* )
-		  )
+	IN int server_sockfd,
+	IN void * (*_handler) (struct connection_vars_t* )
+	)
 {
-  int status = 0;
+	int status = 0;
 
-  while (true)
-    {
-      TRACE;
+	while (true) {
+		TRACE;
 
 #ifdef DEBUG
-      pthread_mutex_lock (&connections_lock);
-      printf ("Connections: %d\n", connections);
-      printf ("Free places: %d\n", get_free_places() );
-      pthread_mutex_unlock (&connections_lock);
+		pthread_mutex_lock (&connections_lock);
+		printf ("Connections: %d\n", connections);
+		printf ("Free places: %d\n", get_free_places() );
+		pthread_mutex_unlock (&connections_lock);
 #endif
 
-      struct sockaddr_in client_addr;
+		struct sockaddr_in client_addr;
 
-      memset (&client_addr, 0, sizeof (struct sockaddr_in) );
+		memset (&client_addr, 0, sizeof (struct sockaddr_in) );
 
-      socklen_t client_addr_size = sizeof (struct sockaddr_in);
+		socklen_t client_addr_size = sizeof (struct sockaddr_in);
 
-      int client_sockfd = accept (
-				  server_sockfd,
-				  (struct sockaddr*) &client_addr,
-				  &client_addr_size
-				  );
+		int client_sockfd = accept (
+			server_sockfd,
+			(struct sockaddr*) &client_addr,
+			&client_addr_size
+                        );
 
-      CHECK_ERRNO (client_sockfd, "Accept connection");
+		CHECK_ERRNO (client_sockfd, "Accept connection");
 
-      pthread_mutex_lock (&connections_lock);
-      int isLimit = connections > HANDLE_CONNECTIONS_COUNT - 1;
-      pthread_mutex_unlock (&connections_lock);
+		pthread_mutex_lock (&connections_lock);
+		int isLimit = connections > HANDLE_CONNECTIONS_COUNT - 1;
+		pthread_mutex_unlock (&connections_lock);
 
-      while (isLimit)
-        {
-          fprintf (stderr, "Connections limit. Wait\n");
+		while (isLimit) {
+			fprintf (stderr, "Connections limit. Wait\n");
 
-          pthread_mutex_lock (&connections_lock);
-          isLimit = connections > HANDLE_CONNECTIONS_COUNT - 1;
-          pthread_mutex_unlock (&connections_lock);
+			pthread_mutex_lock (&connections_lock);
+			isLimit = connections > HANDLE_CONNECTIONS_COUNT - 1;
+			pthread_mutex_unlock (&connections_lock);
 
-          sleep (1);
-        }
+			sleep (1);
+		}
 
-      pthread_mutex_lock (&init_connection_lock);
+		pthread_mutex_lock (&init_connection_lock);
 
-      ++connections_count;
+		++connections_count;
 
-      DBG_printf ("Connect: %lld\n", connections_count);
+		DBG_printf ("Connect: %lld\n", connections_count);
 
-      pthread_t client_thread;
+		pthread_t client_thread;
 
-      struct connection_vars_t* connection =
-	calloc (1, sizeof (struct connection_vars_t) );
+		struct connection_vars_t* connection =
+			calloc (1, sizeof (struct connection_vars_t) );
 
-      if (NULL == connection)
-        {
-          TRACE;
-          fprintf (stderr, "Allocation failed\n");
-          exit (EXIT_FAILURE);
-        }
+		if (NULL == connection) {
+			TRACE;
+			fprintf (stderr, "Allocation failed\n");
+			exit (EXIT_FAILURE);
+		}
 
-      TRACE;
+		TRACE;
 
-      connection->sockfd = client_sockfd;
-      connection->addr = client_addr;
-      connection->n = connections_count;
+		connection->sockfd = client_sockfd;
+		connection->addr = client_addr;
+		connection->n = connections_count;
 
-      TRACE;
+		TRACE;
 
-      status = pthread_create (
-			       &client_thread,
-			       NULL,
-			       (void * (*) (void*) ) _handler,
-			       (void*) connection
-			       );
+		status = pthread_create (
+			&client_thread,
+			NULL,
+			(void * (*) (void*) ) _handler,
+			(void*) connection
+			);
 
-      CHECK_ERRNO (status, "Create handle connection thread");
+		CHECK_ERRNO (status, "Create handle connection thread");
 
-      pthread_detach (client_thread);
+		pthread_detach (client_thread);
 
-      CHECK_ERRNO (status, "Detach connection thread");
+		CHECK_ERRNO (status, "Detach connection thread");
 
-      pthread_mutex_lock (&connections_lock);
+		pthread_mutex_lock (&connections_lock);
 
-      if (save_conn (connection) )
-        {
-          /* Опасная ситуация */
-          fprintf (stderr, "No free place for connection\n");
+		if (save_conn (connection) ) {
+			/* Опасная ситуация */
+			fprintf (stderr, "No free place for connection\n");
 
-          dump_connection_vars (connection);
+			dump_connection_vars (connection);
 
-	  dump_connections ();
+			dump_connections ();
 
-	  pthread_mutex_unlock (&connections_lock);
-	  pthread_mutex_unlock (&init_connection_lock);
-	  exit (EXIT_FAILURE);
-        }
+			pthread_mutex_unlock (&connections_lock);
+			pthread_mutex_unlock (&init_connection_lock);
+			exit (EXIT_FAILURE);
+		}
 
-      pthread_mutex_unlock (&connections_lock);
-      pthread_mutex_unlock (&init_connection_lock);
-    }
+		pthread_mutex_unlock (&connections_lock);
+		pthread_mutex_unlock (&init_connection_lock);
+	}
 }
 
 /**
@@ -397,17 +385,17 @@ int server_sockfd;
  */
 int close_server_sockfd (void)
 {
-  int status;
+	int status;
 
-  status = shutdown (server_sockfd, SHUT_RDWR);
+	status = shutdown (server_sockfd, SHUT_RDWR);
 
-  CHECK_ERRNO (status, "Shutdown server socket");
+	CHECK_ERRNO (status, "Shutdown server socket");
 
-  status = close (server_sockfd);
+	status = close (server_sockfd);
 
-  CHECK_ERRNO (status, "Close server socket");
+	CHECK_ERRNO (status, "Close server socket");
 
-  return status;
+	return status;
 }
 
 /**
@@ -415,25 +403,25 @@ int close_server_sockfd (void)
  */
 void close_server_socfd_on_exit (void)
 {
-  TRACE;
+	TRACE;
 
-  DBG_printf ("Connections at start freeing: %d\n", connections);
+	DBG_printf ("Connections at start freeing: %d\n", connections);
 
-  /* Для корректного закрытия в середине инициализации соединения */
-  pthread_mutex_lock (&init_connection_lock);
-  close_server_sockfd();
-  pthread_mutex_unlock (&init_connection_lock);
+	/* Для корректного закрытия в середине инициализации соединения */
+	pthread_mutex_lock (&init_connection_lock);
+	close_server_sockfd();
+	pthread_mutex_unlock (&init_connection_lock);
 
-  pthread_mutex_lock (&connections_lock);
-  free_all_conn();
-  pthread_mutex_unlock (&connections_lock);
+	pthread_mutex_lock (&connections_lock);
+	free_all_conn();
+	pthread_mutex_unlock (&connections_lock);
 
-  DBG_printf ("Connections at close: %d\n", connections);
+	DBG_printf ("Connections at close: %d\n", connections);
 
-  if (0 != connections)
-    {
-      fprintf(stderr, "Not all connections were closed (%d)", connections);
-    }
+	if (0 != connections) {
+		fprintf (stderr, "Not all connections were closed (%d)",
+			 connections);
+	}
 }
 
 /**
@@ -442,9 +430,9 @@ void close_server_socfd_on_exit (void)
  */
 void gracefully_exit (IN int signum)
 {
-  TRACE;
+	TRACE;
 
-  exit (EXIT_SUCCESS);
+	exit (EXIT_SUCCESS);
 }
 
 /**
@@ -456,57 +444,50 @@ void gracefully_exit (IN int signum)
  */
 int main (IN int argc, IN char** argv)
 {
-  TRACE;
+	TRACE;
 
-  int listen_port = LISTEN_PORT;
+	int listen_port = LISTEN_PORT;
 
-  if (argc > 1)
-    {
-      listen_port = atoi (argv[1]);
-    }
+	if (argc > 1) {
+		listen_port = atoi (argv[1]);
+	}
 
-  pthread_mutex_init (&connections_lock, NULL);
-  pthread_mutex_init (&init_connection_lock, NULL);
+	pthread_mutex_init (&connections_lock, NULL);
+	pthread_mutex_init (&init_connection_lock, NULL);
 
-  memset (current_connections, 0, HANDLE_CONNECTIONS_COUNT);
+	memset (current_connections, 0, HANDLE_CONNECTIONS_COUNT);
 
-  server_sockfd = socket (
-			  AF_INET,
-			  SOCK_STREAM,
-			  getprotobyname ("TCP")->p_proto
-			  );
+	server_sockfd = socket (AF_INET, SOCK_STREAM, 
+				getprotobyname ("TCP")->p_proto);
 
-  CHECK_ERRNO (server_sockfd, "Socket create");
+	CHECK_ERRNO (server_sockfd, "Socket create");
 
-  /* REUSEADDR не используется в связи с проблемами безопасности */
+	/* REUSEADDR не используется в связи с проблемами безопасности */
 
-  struct sockaddr_in addr;
-  memset (&addr, 0, sizeof (struct sockaddr) );
+	struct sockaddr_in addr;
+	memset (&addr, 0, sizeof (struct sockaddr) );
 
-  addr.sin_family = AF_INET;
-  addr.sin_addr.s_addr = htonl (INADDR_ANY);
-  addr.sin_port = htons (listen_port);
+	addr.sin_family = AF_INET;
+	addr.sin_addr.s_addr = htonl (INADDR_ANY);
+	addr.sin_port = htons (listen_port);
 
-  int status = bind (
-		     server_sockfd,
-		     (struct sockaddr*) &addr,
-		     sizeof (addr)
-		     );
+	int status = bind (server_sockfd, (struct sockaddr*) &addr, 
+			   sizeof (addr));
 
-  CHECK_ERRNO (status, "Bind");
+	CHECK_ERRNO (status, "Bind");
 
-  atexit (close_server_socfd_on_exit);
-  signal (SIGINT, gracefully_exit);
+	atexit (close_server_socfd_on_exit);
+	signal (SIGINT, gracefully_exit);
 
-  status = listen (server_sockfd, LISTEN_BACKLOG);
+	status = listen (server_sockfd, LISTEN_BACKLOG);
 
-  CHECK_ERRNO (status, "Start listening");
+	CHECK_ERRNO (status, "Start listening");
 
-  status = connections_loop (server_sockfd, handler);
+	status = connections_loop (server_sockfd, handler);
 
-  CHECK_ERRNO (status, "Connection loop");
+	CHECK_ERRNO (status, "Connection loop");
 
-  status = close_server_sockfd();
+	status = close_server_sockfd();
 
-  return status;
+	return status;
 }
