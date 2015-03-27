@@ -7,7 +7,7 @@ debug:
 	gcc -o -g $(CFLAGS) -DDEBUG -DTRACE tcpserver.c -o tcpserver
 
 valgrind: debug
-	valgrind --leak-check=full ./tcpserver
+	valgrind --show-leak-kinds=all --leak-check=full ./tcpserver
 
 trace:
 	gcc $(CFLAGS) -DTRACE tcpserver.c -o tcpserver	

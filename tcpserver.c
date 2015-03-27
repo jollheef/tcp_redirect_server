@@ -107,6 +107,7 @@ struct connection_vars_t {
 void
 dump_connection_vars (IN struct connection_vars_t* conn)
 {
+	printf ("Адрес структуры: %p\t|", conn);
 	printf ("Номер соединения: %lld\t|", conn->n);
 	printf ("Дескриптор сокета клиента: %d\t|", conn->sockfd);
 	printf ("Описание соединения клиента: %s:%d\n",
@@ -249,11 +250,19 @@ void free_all_conn (void)
  */
 void* handler (IN struct connection_vars_t* connection)
 {
+	/* Поток должен запуститься только после окончания инициализации */
+	pthread_mutex_lock (&init_connection_lock);
+	pthread_mutex_unlock (&init_connection_lock);
+
 	TRACE;
 
 	//sleep (1);			/* TTTTTTTTTTTTTTTTTTT */
 
 	TRACE;
+
+#ifdef DEBUG
+	dump_connection_vars(connection);
+#endif
 
 	int status = shutdown (connection->sockfd, SHUT_RDWR);
 
@@ -417,7 +426,11 @@ int close_server_sockfd (void)
 void close_server_socfd_on_exit (void)
 {
 	TRACE;
-
+	
+	printf ("All connects: %lld\n", connections_count);
+	
+	pthread_mutex_unlock (&connections_lock);
+	pthread_mutex_unlock (&init_connection_lock);
 	fprintf(stderr, "\nWaiting for close connections...");
 	int remain = 10;	/* Время для ожидания */
 	do {
