@@ -4,7 +4,10 @@ all:
 	gcc $(CFLAGS) tcpserver.c -o tcpserver
 
 debug:
-	gcc -g $(CFLAGS) -DDEBUG tcpserver.c -o tcpserver
+	gcc -o -g $(CFLAGS) -DDEBUG -DTRACE tcpserver.c -o tcpserver
+
+valgrind: debug
+	valgrind --leak-check=full ./tcpserver
 
 trace:
 	gcc $(CFLAGS) -DTRACE tcpserver.c -o tcpserver	

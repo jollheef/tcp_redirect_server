@@ -59,7 +59,7 @@
 /**
  * Количество одновременно обслуживаемых соединений.
  */
-#define HANDLE_CONNECTIONS_COUNT (100)
+#define HANDLE_CONNS_COUNT (100)
 
 /**
  * Счетчик обслуживаемых в данный момент соединений.
@@ -116,7 +116,7 @@ dump_connection_vars (IN struct connection_vars_t* conn)
 /**
  * Массив открытых на данный момент соединений.
  */
-struct connection_vars_t* current_connections[HANDLE_CONNECTIONS_COUNT];
+struct connection_vars_t* current_connections[HANDLE_CONNS_COUNT];
 
 /**
  * Вывод состояния сохраненных соединений в стандартный вывод.
@@ -124,8 +124,9 @@ struct connection_vars_t* current_connections[HANDLE_CONNECTIONS_COUNT];
 void
 dump_connections (void)
 {
-	for (int i = 0; i < HANDLE_CONNECTIONS_COUNT; ++i) {
+	for (int i = 0; i < HANDLE_CONNS_COUNT; ++i) {
 		if (NULL != current_connections[i]) {
+			TRACE;
 			dump_connection_vars (current_connections[i]);
 		}
 	}
@@ -141,11 +142,15 @@ save_conn (IN struct connection_vars_t* conn)
 {
 	int status = 1;
 
-	for (int i = 0; i < HANDLE_CONNECTIONS_COUNT; ++i) {
+	for (int i = 0; i < HANDLE_CONNS_COUNT; ++i) {
 		if (NULL == current_connections[i]) {
 			TRACE;
-
+#ifdef DEBUG
+			dump_connection_vars(conn);
+#endif
 			current_connections[i] = conn;
+
+			connections += 1;
 
 			status = 0;
 
@@ -164,13 +169,20 @@ save_conn (IN struct connection_vars_t* conn)
 void
 remove_conn (IN struct connection_vars_t* conn)
 {
-	for (int i = 0; i < HANDLE_CONNECTIONS_COUNT; ++i) {
+	TRACE;
+
+	for (int i = 0; i < HANDLE_CONNS_COUNT; ++i) {
 		if (NULL != current_connections[i]) {
 			TRACE;
 
 			if (conn->n == current_connections[i]->n) {
 				TRACE;
+#ifdef DEBUG
+				dump_connection_vars(conn);
+#endif
 				current_connections[i] = NULL;
+				free(conn);
+				connections -= 1;
 				return;
 			}
 		}
@@ -187,7 +199,7 @@ get_free_places (void)
 {
 	int places = 0;
 
-	for (int i = 0; i < HANDLE_CONNECTIONS_COUNT; ++i) {
+	for (int i = 0; i < HANDLE_CONNS_COUNT; ++i) {
 		if (NULL == current_connections[i]) {
 			++places;
 		}
@@ -202,16 +214,16 @@ get_free_places (void)
  */
 void free_all_conn (void)
 {
-	for (int i = 0; i < HANDLE_CONNECTIONS_COUNT; ++i) {
+	for (int i = 0; i < HANDLE_CONNS_COUNT; ++i) {
 		if (NULL == current_connections[i]) {
 			continue;
 		}
 
 		struct connection_vars_t* connection = current_connections[i];
 
+		TRACE;
 #ifdef DEBUG
 		dump_connection_vars (connection);
-
 #endif
 		int status = shutdown (connection->sockfd, SHUT_RDWR);
 
@@ -239,26 +251,22 @@ void* handler (IN struct connection_vars_t* connection)
 {
 	TRACE;
 
-	pthread_mutex_lock (&connections_lock);
-	connections += 1;
-	pthread_mutex_unlock (&connections_lock);
+	//sleep (1);			/* TTTTTTTTTTTTTTTTTTT */
 
-	sleep (1);			/* TTTTTTTTTTTTTTTTTTT */
+	TRACE;
 
 	int status = shutdown (connection->sockfd, SHUT_RDWR);
 
 	CHECK_ERRNO (status, "Shutdown connection");
+
+	TRACE;
 
 	status = close (connection->sockfd);
 
 	CHECK_ERRNO (status, "Close connection");
 
 	pthread_mutex_lock (&connections_lock);
-	TRACE;
 	remove_conn (connection);
-	free (connection);
-	connections -= 1;
-	TRACE;
 	pthread_mutex_unlock (&connections_lock);
 }
 
@@ -283,6 +291,16 @@ connections_loop (
 		pthread_mutex_lock (&connections_lock);
 		printf ("Connections: %d\n", connections);
 		printf ("Free places: %d\n", get_free_places() );
+ 		if (HANDLE_CONNS_COUNT != (connections + get_free_places()))
+		{
+			fprintf (stderr, "Something went wrong\n");
+
+			TRACE;
+			dump_connections ();
+
+			pthread_mutex_unlock (&connections_lock);
+			return -EINVAL;
+		}
 		pthread_mutex_unlock (&connections_lock);
 #endif
 
@@ -300,19 +318,13 @@ connections_loop (
 
 		CHECK_ERRNO (client_sockfd, "Accept connection");
 
-		pthread_mutex_lock (&connections_lock);
-		int isLimit = connections > HANDLE_CONNECTIONS_COUNT - 1;
-		pthread_mutex_unlock (&connections_lock);
-
-		while (isLimit) {
-			fprintf (stderr, "Connections limit. Wait\n");
-
+		int isLimit = false;
+		do {
+			TRACE;
 			pthread_mutex_lock (&connections_lock);
-			isLimit = connections > HANDLE_CONNECTIONS_COUNT - 1;
-			pthread_mutex_unlock (&connections_lock);
-
-			sleep (1);
-		}
+			isLimit = connections > HANDLE_CONNS_COUNT - 1;
+			pthread_mutex_unlock (&connections_lock);			
+		} while (isLimit);
 
 		pthread_mutex_lock (&init_connection_lock);
 
@@ -358,6 +370,7 @@ connections_loop (
 			/* Опасная ситуация */
 			fprintf (stderr, "No free place for connection\n");
 
+			TRACE;
 			dump_connection_vars (connection);
 
 			dump_connections ();
@@ -404,6 +417,24 @@ int close_server_sockfd (void)
 void close_server_socfd_on_exit (void)
 {
 	TRACE;
+
+	fprintf(stderr, "\nWaiting for close connections...");
+	int remain = 10;	/* Время для ожидания */
+	do {
+		pthread_mutex_lock (&connections_lock);
+
+		if (0 == connections) {
+			printf(" done\n");
+			return;
+		}
+
+		pthread_mutex_unlock (&connections_lock);
+
+		sleep (1);
+		fprintf(stderr, "%d ", --remain);
+	}
+	while (remain > 0);
+	fprintf(stderr, "\n");
 
 	DBG_printf ("Connections at start freeing: %d\n", connections);
 
@@ -455,9 +486,9 @@ int main (IN int argc, IN char** argv)
 	pthread_mutex_init (&connections_lock, NULL);
 	pthread_mutex_init (&init_connection_lock, NULL);
 
-	memset (current_connections, 0, HANDLE_CONNECTIONS_COUNT);
+	memset (current_connections, 0, HANDLE_CONNS_COUNT);
 
-	server_sockfd = socket (AF_INET, SOCK_STREAM, 
+	server_sockfd = socket (AF_INET, SOCK_STREAM,
 				getprotobyname ("TCP")->p_proto);
 
 	CHECK_ERRNO (server_sockfd, "Socket create");
@@ -471,8 +502,8 @@ int main (IN int argc, IN char** argv)
 	addr.sin_addr.s_addr = htonl (INADDR_ANY);
 	addr.sin_port = htons (listen_port);
 
-	int status = bind (server_sockfd, (struct sockaddr*) &addr, 
-			   sizeof (addr));
+	int status = bind (server_sockfd, (struct sockaddr*) &addr,
+			   sizeof (addr) );
 
 	CHECK_ERRNO (status, "Bind");
 

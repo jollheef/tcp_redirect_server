@@ -14,6 +14,7 @@ except:
 def create_socket():
     global port
     s = socket.socket(socket.AF_INET)
+    s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     s.connect(('127.0.0.1', port))
 
 for i in range(0, 65535):
