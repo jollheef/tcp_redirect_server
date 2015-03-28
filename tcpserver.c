@@ -93,6 +93,16 @@ pthread_mutex_t init_connection_lock = PTHREAD_MUTEX_INITIALIZER;
 #define OUT
 
 /**
+ * Сообщение указывает на достижение сервером общего лимита соединений.
+ */
+#define ALL_CONN_LIMIT_MSG ("Connection closed by general connections limit.\n")
+
+/**
+ * Сообщение о достижение клинта общего лимита соединений с одного ip.
+ */
+#define IP_CONN_LIMIT_MSG ("Connection closed by ip connections limit.\n")
+
+/**
  * Структура, описывающая соединение.
  */
 struct connection_vars_t {
@@ -255,7 +265,7 @@ void* handler (IN struct connection_vars_t* connection)
 
 	TRACE;
 
-	//sleep (1);			/* TTTTTTTTTTTTTTTTTTT */
+	sleep (1);			/* TTTTTTTTTTTTTTTTTTT */
 
 	TRACE;
 
@@ -328,21 +338,24 @@ connections_loop (IN int server_sockfd,
 
 		CHECK_ERRNO (client_sockfd, "Accept connection");
 
-		struct timespec req;
-		req.tv_sec = 0;
-		req.tv_nsec = 10000000; /* 0.01 секунды */
-		
-		int isLimit = false;
+		pthread_mutex_lock (&connections_lock);
+		int is_limit = connections > HANDLE_CONNS_COUNT - 1;
+		pthread_mutex_unlock (&connections_lock);
 
-		do {
+		if (is_limit) {
 			TRACE;
-			pthread_mutex_lock (&connections_lock);
-			isLimit = connections > HANDLE_CONNS_COUNT - 1;
-			pthread_mutex_unlock (&connections_lock);
 
-			nanosleep(&req, NULL);
+			printf(ALL_CONN_LIMIT_MSG);
+
+			/* Отправка клиенту сообщение о лимите */
+			send(client_sockfd, ALL_CONN_LIMIT_MSG, 
+			     sizeof(ALL_CONN_LIMIT_MSG), 0);
+
+			shutdown (client_sockfd, SHUT_RDWR);
+			close (client_sockfd);
+
+			continue;
 		}
-		while (isLimit);
 
 		pthread_mutex_lock (&init_connection_lock);
 
