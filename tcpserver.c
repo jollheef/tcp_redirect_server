@@ -28,8 +28,8 @@
  * Проверить значение на -1 и в случае, если это так
  * вывести сообщение об ошибке и выйти с EXIT_FAILURE.
  *
- * @param e [in] -- возвращаемое значение для проверки.
- * @param m [in] -- сообщение об ошибке.
+ * @param[in] e возвращаемое значение для проверки.
+ * @param[in] m сообщение об ошибке.
  * @return EXIT_FAILURE в случае ошибки или продолжение
  *         исполнения в случае корректного значения.
  */
@@ -104,10 +104,9 @@ struct connection_vars_t {
 /**
  * Вывести структуру, описывающую соединение, в стандартный вывод.
  *
- * @param conn [in] -- указатель на структуру.
+ * @param[in] conn указатель на структуру.
  */
-void
-dump_connection_vars (IN struct connection_vars_t* conn)
+void dump_connection_vars (IN struct connection_vars_t* conn)
 {
 	printf ("Адрес структуры: %p\t|", conn);
 	printf ("Номер соединения: %lld\t|", conn->n);
@@ -124,8 +123,7 @@ struct connection_vars_t* current_connections[HANDLE_CONNS_COUNT];
 /**
  * Вывод состояния сохраненных соединений в стандартный вывод.
  */
-void
-dump_connections (void)
+void dump_connections (void)
 {
 	for (int i = 0; i < HANDLE_CONNS_COUNT; ++i) {
 		if (NULL != current_connections[i]) {
@@ -138,10 +136,9 @@ dump_connections (void)
 /**
  * Сохранить соединение в массиве соединений.
  *
- * @param conn [in] -- указатель на структуру соединения.
+ * @param[in] conn -- указатель на структуру соединения.
  */
-int
-save_conn (IN struct connection_vars_t* conn)
+int save_conn (IN struct connection_vars_t* conn)
 {
 	int status = 1;
 
@@ -167,10 +164,9 @@ save_conn (IN struct connection_vars_t* conn)
 /**
  * Удалить соединение из массива соединений.
  *
- * @param conn [in] -- указатель на структуру соединения.
+ * @param[in] conn -- указатель на структуру соединения.
  */
-void
-remove_conn (IN struct connection_vars_t* conn)
+void remove_conn (IN struct connection_vars_t* conn)
 {
 	TRACE;
 
@@ -197,8 +193,7 @@ remove_conn (IN struct connection_vars_t* conn)
 /**
  * Получить количество свободных мест в массиве соединений.
  */
-int
-get_free_places (void)
+int get_free_places (void)
 {
 	int places = 0;
 
@@ -249,7 +244,7 @@ void free_all_conn (void)
 /**
  * Обработчик соединения.
  *
- * @param connection [in] -- описание соединения.
+ * @param[in] connection описание соединения.
  * @return не используется.
  */
 void* handler (IN struct connection_vars_t* connection)
@@ -288,14 +283,13 @@ void* handler (IN struct connection_vars_t* connection)
 /**
  * Цикл обработки входящий соединений.
  *
- * @param server_sockfd [in] -- сокет, принимающий входящие соединения.
+ * @param[in] server_sockfd сокет, принимающий входящие соединения.
+ * @param[in] handler обработчик соединения.
  * @param статус завершения.
  */
 int
-connections_loop (
-	IN int server_sockfd,
-	IN void * (*_handler) (struct connection_vars_t* )
-	)
+connections_loop (IN int server_sockfd,
+		  IN void * (*_handler) (struct connection_vars_t* ))
 {
 	int status = 0;
 
@@ -488,6 +482,8 @@ void close_server_socfd_on_exit (void)
 /**
  * Корректный выход из процесса.
  * Используется для обработки SIGINT (Ctrl + C).
+ *
+ * @param[in] signum номер сигнала (только SIGINT).
  */
 void gracefully_exit (IN int signum)
 {
@@ -499,8 +495,8 @@ void gracefully_exit (IN int signum)
 /**
  * Точка входа в приложение.
  *
- * @param argc [in] -- количество аргументов командной строки.
- * @param argv [in] -- массив аргументов.
+ * @param[in] argc количество аргументов командной строки.
+ * @param[in] argv массив аргументов.
  * @return статус завершения.
  */
 int main (IN int argc, IN char** argv)
