@@ -63,7 +63,7 @@
 /**
  * Количество одновременно обслуживаемых соединений.
  */
-#define HANDLE_CONNS_COUNT (100)
+#define HANDLE_CONNS_COUNT (1000)
 
 /**
  * Счетчик обслуживаемых в данный момент соединений.
@@ -128,7 +128,7 @@ ushort ip_connections[IP_CONNECTIONS_MAX];
  * @param[in] s_addr интернет адрес.
  * @return индекс 0..65535 (IP_CONNECTIONS_MAX).
  */
-static inline ushort get_ip_index(IN in_addr_t s_addr)
+static inline ushort get_ip_index (IN in_addr_t s_addr)
 {
 	return ntohl (s_addr) & 65535;
 }
@@ -143,9 +143,9 @@ static inline ushort get_ip_index(IN in_addr_t s_addr)
  * @param[in] s_addr интернет адрес.
  * @return количество соединений для ip.
  */
-static inline ushort get_ip_conn(IN in_addr_t s_addr)
+static inline ushort get_ip_conn (IN in_addr_t s_addr)
 {
-	return ip_connections[get_ip_index(s_addr)];
+	return ip_connections[get_ip_index (s_addr)];
 }
 
 /**
@@ -153,9 +153,9 @@ static inline ushort get_ip_conn(IN in_addr_t s_addr)
  *
  * @param[in] s_addr интернет адрес.
  */
-static inline void inc_ip_conn(IN in_addr_t s_addr)
+static inline void inc_ip_conn (IN in_addr_t s_addr)
 {
-	++ip_connections[get_ip_index(s_addr)];
+	++ip_connections[get_ip_index (s_addr)];
 }
 
 /**
@@ -163,9 +163,9 @@ static inline void inc_ip_conn(IN in_addr_t s_addr)
  *
  * @param[in] s_addr интернет адрес.
  */
-static inline void dec_ip_conn(IN in_addr_t s_addr)
+static inline void dec_ip_conn (IN in_addr_t s_addr)
 {
-	--ip_connections[get_ip_index(s_addr)];
+	--ip_connections[get_ip_index (s_addr)];
 }
 
 /**
@@ -188,7 +188,7 @@ void dump_connection_vars (IN struct connection_vars_t* conn)
 	printf ("Номер соединения: %lld\t|", conn->n);
 	printf ("Дескриптор сокета клиента: %d\t|", conn->sockfd);
 	printf ("Описание соединения клиента: %s:%d\n",
-		inet_ntoa (conn->addr.sin_addr), ntohs (conn->addr.sin_port));
+		inet_ntoa (conn->addr.sin_addr), ntohs (conn->addr.sin_port) );
 }
 
 /**
@@ -228,7 +228,7 @@ int save_conn (IN struct connection_vars_t* conn)
 
 			connections += 1;
 
-			inc_ip_conn(conn->addr.sin_addr.s_addr);
+			inc_ip_conn (conn->addr.sin_addr.s_addr);
 
 			status = 0;
 
@@ -261,7 +261,7 @@ void remove_conn (IN struct connection_vars_t* conn)
 				free (conn);
 				connections -= 1;
 
-				dec_ip_conn(conn->addr.sin_addr.s_addr);
+				dec_ip_conn (conn->addr.sin_addr.s_addr);
 
 				return;
 			}
@@ -370,7 +370,7 @@ void* handler (IN struct connection_vars_t* connection)
  */
 int
 connections_loop (IN int server_sockfd,
-		  IN void * (*_handler) (struct connection_vars_t* ))
+                  IN void * (*_handler) (struct connection_vars_t* ) )
 {
 	int status = 0;
 
@@ -405,21 +405,21 @@ connections_loop (IN int server_sockfd,
 			server_sockfd,
 			(struct sockaddr*) &client_addr,
 			&client_addr_size
-			);
+                        );
 
 		CHECK_ERRNO (client_sockfd, "Accept connection");
 
 		/* Проверка лимита соединений для IP */
 		pthread_mutex_lock (&connections_lock);
-		int ip_conn = get_ip_conn(client_addr.sin_addr.s_addr);
+		int ip_conn = get_ip_conn (client_addr.sin_addr.s_addr);
 		pthread_mutex_unlock (&connections_lock);
 
 		if (ip_conn > MAX_IP_CONN) {
 			TRACE;
 
 			/* Отправка клиенту сообщение о лимите */
-			send(client_sockfd, IP_CONN_LIMIT_MSG,
-			     sizeof(IP_CONN_LIMIT_MSG), 0);
+			send (client_sockfd, IP_CONN_LIMIT_MSG,
+			      sizeof (IP_CONN_LIMIT_MSG), 0);
 
 			shutdown (client_sockfd, SHUT_RDWR);
 			close (client_sockfd);
@@ -436,8 +436,8 @@ connections_loop (IN int server_sockfd,
 			TRACE;
 
 			/* Отправка клиенту сообщение о лимите */
-			send(client_sockfd, ALL_CONN_LIMIT_MSG,
-			     sizeof(ALL_CONN_LIMIT_MSG), 0);
+			send (client_sockfd, ALL_CONN_LIMIT_MSG,
+			      sizeof (ALL_CONN_LIMIT_MSG), 0);
 
 			shutdown (client_sockfd, SHUT_RDWR);
 			close (client_sockfd);
@@ -615,7 +615,7 @@ int main (IN int argc, IN char** argv)
 
 	memset (current_connections, 0, HANDLE_CONNS_COUNT);
 
-	memset(ip_connections, 0, sizeof(ip_connections));
+	memset (ip_connections, 0, sizeof (ip_connections) );
 
 	server_sockfd = socket (AF_INET, SOCK_STREAM,
 				getprotobyname ("TCP")->p_proto);
