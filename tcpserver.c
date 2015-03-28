@@ -112,7 +112,7 @@ void dump_connection_vars (IN struct connection_vars_t* conn)
 	printf ("Номер соединения: %lld\t|", conn->n);
 	printf ("Дескриптор сокета клиента: %d\t|", conn->sockfd);
 	printf ("Описание соединения клиента: %s:%d\n",
-		inet_ntoa (conn->addr.sin_addr), conn->addr.sin_port);
+		inet_ntoa (conn->addr.sin_addr), ntohs (conn->addr.sin_port));
 }
 
 /**
