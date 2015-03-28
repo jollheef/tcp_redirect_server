@@ -8,6 +8,7 @@
  * TCP сервер, перенаправляющий поток с пользователя на приложение.
  */
 
+#define _POSIX_C_SOURCE 200809L
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
@@ -21,6 +22,7 @@
 #include <signal.h>
 #include <pthread.h>
 #include <unistd.h>
+#include <time.h>
 
 /**
  * Проверить значение на -1 и в случае, если это так
@@ -147,7 +149,7 @@ save_conn (IN struct connection_vars_t* conn)
 		if (NULL == current_connections[i]) {
 			TRACE;
 #ifdef DEBUG
-			dump_connection_vars(conn);
+			dump_connection_vars (conn);
 #endif
 			current_connections[i] = conn;
 
@@ -179,10 +181,10 @@ remove_conn (IN struct connection_vars_t* conn)
 			if (conn->n == current_connections[i]->n) {
 				TRACE;
 #ifdef DEBUG
-				dump_connection_vars(conn);
+				dump_connection_vars (conn);
 #endif
 				current_connections[i] = NULL;
-				free(conn);
+				free (conn);
 				connections -= 1;
 				return;
 			}
@@ -223,8 +225,10 @@ void free_all_conn (void)
 		struct connection_vars_t* connection = current_connections[i];
 
 		TRACE;
+
 #ifdef DEBUG
 		dump_connection_vars (connection);
+
 #endif
 		int status = shutdown (connection->sockfd, SHUT_RDWR);
 
@@ -261,7 +265,7 @@ void* handler (IN struct connection_vars_t* connection)
 	TRACE;
 
 #ifdef DEBUG
-	dump_connection_vars(connection);
+	dump_connection_vars (connection);
 #endif
 
 	int status = shutdown (connection->sockfd, SHUT_RDWR);
@@ -277,6 +281,8 @@ void* handler (IN struct connection_vars_t* connection)
 	pthread_mutex_lock (&connections_lock);
 	remove_conn (connection);
 	pthread_mutex_unlock (&connections_lock);
+
+	return NULL;
 }
 
 /**
@@ -300,8 +306,8 @@ connections_loop (
 		pthread_mutex_lock (&connections_lock);
 		printf ("Connections: %d\n", connections);
 		printf ("Free places: %d\n", get_free_places() );
- 		if (HANDLE_CONNS_COUNT != (connections + get_free_places()))
-		{
+
+		if (HANDLE_CONNS_COUNT != (connections + get_free_places() ) ) {
 			fprintf (stderr, "Something went wrong\n");
 
 			TRACE;
@@ -310,6 +316,7 @@ connections_loop (
 			pthread_mutex_unlock (&connections_lock);
 			return -EINVAL;
 		}
+
 		pthread_mutex_unlock (&connections_lock);
 #endif
 
@@ -327,13 +334,21 @@ connections_loop (
 
 		CHECK_ERRNO (client_sockfd, "Accept connection");
 
+		struct timespec req;
+		req.tv_sec = 0;
+		req.tv_nsec = 10000000; /* 0.01 секунды */
+		
 		int isLimit = false;
+
 		do {
 			TRACE;
 			pthread_mutex_lock (&connections_lock);
 			isLimit = connections > HANDLE_CONNS_COUNT - 1;
-			pthread_mutex_unlock (&connections_lock);			
-		} while (isLimit);
+			pthread_mutex_unlock (&connections_lock);
+
+			nanosleep(&req, NULL);
+		}
+		while (isLimit);
 
 		pthread_mutex_lock (&init_connection_lock);
 
@@ -426,28 +441,30 @@ int close_server_sockfd (void)
 void close_server_socfd_on_exit (void)
 {
 	TRACE;
-	
-	printf ("All connects: %lld\n", connections_count);
-	
+
+	printf ("\nAll connects: %lld\n", connections_count);
+
 	pthread_mutex_unlock (&connections_lock);
 	pthread_mutex_unlock (&init_connection_lock);
-	fprintf(stderr, "\nWaiting for close connections...");
+	fprintf (stderr, "\nWaiting for close connections...");
 	int remain = 10;	/* Время для ожидания */
+
 	do {
 		pthread_mutex_lock (&connections_lock);
 
 		if (0 == connections) {
-			printf(" done\n");
+			printf (" done\n");
 			return;
 		}
 
 		pthread_mutex_unlock (&connections_lock);
 
 		sleep (1);
-		fprintf(stderr, "%d ", --remain);
+		fprintf (stderr, "%d ", --remain);
 	}
 	while (remain > 0);
-	fprintf(stderr, "\n");
+
+	fprintf (stderr, "\n");
 
 	DBG_printf ("Connections at start freeing: %d\n", connections);
 

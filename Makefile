@@ -1,5 +1,7 @@
 CFLAGS += -std=c99 -lpthread
 
+CFLAGS += -Wall -Werror
+
 all:
 	gcc $(CFLAGS) tcpserver.c -o tcpserver
 
