@@ -1,4 +1,4 @@
-CFLAGS += -std=c99 -lpthread
+CFLAGS += -std=gnu11 -lpthread
 
 CFLAGS += -Wall -Werror
 

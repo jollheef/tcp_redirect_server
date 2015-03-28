@@ -9,11 +9,13 @@
  */
 
 #define _POSIX_C_SOURCE 200809L
+#define _BSD_SOURCE
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
 #include <string.h>
 #include <sys/socket.h>
+#include <sys/types.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <arpa/inet.h>
@@ -103,6 +105,70 @@ pthread_mutex_t init_connection_lock = PTHREAD_MUTEX_INITIALIZER;
 #define IP_CONN_LIMIT_MSG ("Connection closed by ip connections limit.\n")
 
 /**
+ * Максимальное количество соединений с одного IP
+ */
+#define MAX_IP_CONN (10)
+
+/**
+ * Максимальное количество IP в массиве счетчиков соединений.
+ * Изменение этого значения может привести к непредсказуемому результату.
+ */
+#define IP_CONNECTIONS_MAX (255*255)
+
+/**
+ * Массив счетчиков соединений для каждого IP.
+ * Используется только 2 последних октета IP.
+ */
+ushort ip_connections[IP_CONNECTIONS_MAX];
+
+/**
+ * Получить индекс для массива IP соединений.
+ * Индекс это произведение двух последних октетов.
+ *
+ * @param[in] s_addr интернет адрес.
+ * @return индекс 0..65535 (IP_CONNECTIONS_MAX).
+ */
+static inline ushort get_ip_index(IN in_addr_t s_addr)
+{
+	return ntohl (s_addr) & 65535;
+}
+
+/**
+ * Получить количество текущих соединений для IP.
+ * Программа рассчитана на работу в /16, в бОльших подсетях поведение
+ * блокировки количества соединений по IP будет отличным от ожидаемого.
+ * Собственно, для возможной поддержки бОльших подсетей и вынесены
+ * операции работы с количеством соединений в отдельные функции.
+ *
+ * @param[in] s_addr интернет адрес.
+ * @return количество соединений для ip.
+ */
+static inline ushort get_ip_conn(IN in_addr_t s_addr)
+{
+	return ip_connections[get_ip_index(s_addr)];
+}
+
+/**
+ * Увеличить счетчик соединений с IP на единицу.
+ *
+ * @param[in] s_addr интернет адрес.
+ */
+static inline void inc_ip_conn(IN in_addr_t s_addr)
+{
+	++ip_connections[get_ip_index(s_addr)];
+}
+
+/**
+ * Уменьшить счетчик соединений с IP на единицу.
+ *
+ * @param[in] s_addr интернет адрес.
+ */
+static inline void dec_ip_conn(IN in_addr_t s_addr)
+{
+	--ip_connections[get_ip_index(s_addr)];
+}
+
+/**
  * Структура, описывающая соединение.
  */
 struct connection_vars_t {
@@ -162,6 +228,8 @@ int save_conn (IN struct connection_vars_t* conn)
 
 			connections += 1;
 
+			inc_ip_conn(conn->addr.sin_addr.s_addr);
+
 			status = 0;
 
 			break;
@@ -192,6 +260,9 @@ void remove_conn (IN struct connection_vars_t* conn)
 				current_connections[i] = NULL;
 				free (conn);
 				connections -= 1;
+
+				dec_ip_conn(conn->addr.sin_addr.s_addr);
+
 				return;
 			}
 		}
@@ -334,10 +405,29 @@ connections_loop (IN int server_sockfd,
 			server_sockfd,
 			(struct sockaddr*) &client_addr,
 			&client_addr_size
-                        );
+			);
 
 		CHECK_ERRNO (client_sockfd, "Accept connection");
 
+		/* Проверка лимита соединений для IP */
+		pthread_mutex_lock (&connections_lock);
+		int ip_conn = get_ip_conn(client_addr.sin_addr.s_addr);
+		pthread_mutex_unlock (&connections_lock);
+
+		if (ip_conn > MAX_IP_CONN) {
+			TRACE;
+
+			/* Отправка клиенту сообщение о лимите */
+			send(client_sockfd, IP_CONN_LIMIT_MSG,
+			     sizeof(IP_CONN_LIMIT_MSG), 0);
+
+			shutdown (client_sockfd, SHUT_RDWR);
+			close (client_sockfd);
+
+			continue;
+		}
+
+		/* Проверка общего лимита соединений. */
 		pthread_mutex_lock (&connections_lock);
 		int is_limit = connections > HANDLE_CONNS_COUNT - 1;
 		pthread_mutex_unlock (&connections_lock);
@@ -345,10 +435,8 @@ connections_loop (IN int server_sockfd,
 		if (is_limit) {
 			TRACE;
 
-			printf(ALL_CONN_LIMIT_MSG);
-
 			/* Отправка клиенту сообщение о лимите */
-			send(client_sockfd, ALL_CONN_LIMIT_MSG, 
+			send(client_sockfd, ALL_CONN_LIMIT_MSG,
 			     sizeof(ALL_CONN_LIMIT_MSG), 0);
 
 			shutdown (client_sockfd, SHUT_RDWR);
@@ -526,6 +614,8 @@ int main (IN int argc, IN char** argv)
 	pthread_mutex_init (&init_connection_lock, NULL);
 
 	memset (current_connections, 0, HANDLE_CONNS_COUNT);
+
+	memset(ip_connections, 0, sizeof(ip_connections));
 
 	server_sockfd = socket (AF_INET, SOCK_STREAM,
 				getprotobyname ("TCP")->p_proto);
