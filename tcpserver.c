@@ -14,9 +14,11 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <string.h>
+#include <sys/ioctl.h>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <netinet/in.h>
+#include <fcntl.h>
 #include <netinet/tcp.h>
 #include <arpa/inet.h>
 #include <netdb.h>
@@ -25,6 +27,7 @@
 #include <pthread.h>
 #include <unistd.h>
 #include <time.h>
+#include <poll.h>
 
 /**
  * Проверить значение на -1 и в случае, если это так
@@ -103,6 +106,24 @@ pthread_mutex_t init_connection_lock = PTHREAD_MUTEX_INITIALIZER;
  * Сообщение о достижение клинта общего лимита соединений с одного ip.
  */
 #define IP_CONN_LIMIT_MSG ("Connection closed by ip connections limit.\n")
+
+/**
+ * Сообщение о истечении времени ожидания ответа.
+ */
+#define CONN_TIMEOUT_MSG ("Connection closed by timeout.\n")
+
+/**
+ * Время ожидания ответа пользователя, в миллисекундах.
+ */
+#define TIMEOUT_MS (3000)	/* 3 секунды */
+
+/**
+ * Максимальный размер посылки, в байтах.
+ * Сделано для исключения ситуации посылки серверу данных больше,
+ * чем у сервера памяти, а также от генерации приложением слишком
+ * большой посылки, которая может загрузить сеть.
+ */
+#define MAX_DATA_COUNT (1024 * 1024)
 
 /**
  * Максимальное количество соединений с одного IP
@@ -323,6 +344,186 @@ void free_all_conn (void)
 }
 
 /**
+ * Реализация двунаправленного popen.
+ *
+ * @param[in] command команда для запуска.
+ * @param[out] infp stdin процесса.
+ * @param[out] outfp stdout и stderr процесса.
+ * @return идентификатор запущенного процесса или -1 в случае ошибки (errno).
+ */
+pid_t popen2 (IN const char* command, OUT int* infp, OUT int* outfp)
+{
+	int p_stdin[2], p_stdout[2];
+
+	if (pipe (p_stdin) != 0 || pipe (p_stdout) != 0) {
+		return -1;
+	}
+
+	pid_t pid = fork();
+
+	if (pid == 0) {
+		close (p_stdin[1]);
+
+		dup2 (p_stdin[0], fileno (stdin) );
+
+		close (p_stdout[0]);
+
+		dup2 (p_stdout[1], fileno (stdout) );
+		dup2 (p_stdout[1], fileno (stderr) );
+
+		execl ("/bin/sh", "sh", "-c", command, NULL);
+
+		/* До этой строки исполнение никогда не должно дойти */
+		exit (EXIT_FAILURE);
+	}
+	else if (pid < 0) {
+		return -1;
+	}
+
+	*infp = p_stdin[1];
+
+	*outfp = p_stdout[0];
+
+	return pid;
+}
+
+/**
+ * Команда, вызываемая на каждое соединения.
+ */
+const char* user_command = "./test";
+
+/**
+ * Взаимодействие с пользователем.
+ *
+ * @param[in] connection описание соединения.
+ * @return статус завершения.
+ */
+int user_interaction (IN struct connection_vars_t* conn)
+{
+	TRACE;
+
+	int infp, outfp;
+	int pid = popen2 (user_command, &infp, &outfp);
+
+	CHECK_ERRNO (pid, "Execute application");
+
+	char* buf = calloc (1, sizeof (char) );
+
+	struct pollfd* fds = calloc (sizeof (struct pollfd), 2);
+	fds[0].fd = outfp;
+	fds[1].fd = conn->sockfd;
+	fds[0].events = fds[1].events = POLLIN;
+
+	while (true) {
+		int status = poll (fds, 2, TIMEOUT_MS);
+
+		CHECK_ERRNO (status, "Polling");
+
+		DBG_printf ("Revents: %d %d\n", fds[0].revents, fds[1].revents);
+
+		if ( (fds[0].revents | fds[1].revents) & POLLNVAL) {
+			/* Один из дескрипторов закрылся */
+			DBG_printf ("One of fd has been closed\n");
+			break;
+		}
+
+		if (0 == status) {
+			/* Время ожидания истекло */
+			send (conn->sockfd, CONN_TIMEOUT_MSG,
+			      sizeof (CONN_TIMEOUT_MSG), 0);
+			break;
+		}
+
+		int count = 0;	/* Количество данных в fd */
+
+		status = ioctl (conn->sockfd, FIONREAD, &count);
+
+		CHECK_ERRNO (status, "Get available data in sockfd");
+
+		DBG_printf ("%d bytes to read from socket\n", count);
+
+		if ( (0 == count) && (fds[1].revents & POLLIN) ) {
+			/*
+			 * Если poll возвращает, что данные есть,
+			 * но эти данные нельзя прочитать, то
+			 * скорее всего сокет закрылся, а эти данные
+			 * это что-то для сетевого стека, а не для нас.
+			 */
+			DBG_printf ("Socket most likely closed\n");
+			break;
+		}
+
+		if (count > MAX_DATA_COUNT) {
+			/* TODO: Возможно, стоит генерировать сообщение. */
+			break;
+		}
+
+		if (count > 0) {
+			TRACE;
+
+			buf = realloc (buf, count);
+
+			int ret = recv (conn->sockfd, buf, count, 0);
+
+			DBG_printf ("%d bytes ret from socket\n", ret);
+
+			if (ret < 0) {
+				break;
+			}
+
+			ret = write (infp, buf, ret);
+
+			if (ret < 0) {
+				break;
+			}
+		}
+
+		status = ioctl (outfp, FIONREAD, &count);
+
+		CHECK_ERRNO (status, "Get available data in outfp");
+
+		DBG_printf ("%d bytes to read from outfp\n", count);
+
+		if (count > MAX_DATA_COUNT) {
+			/* TODO: Возможно, стоит генерировать сообщение. */
+			break;
+		}
+
+		if (count > 0) {
+			TRACE;
+
+			buf = realloc (buf, count);
+
+			int ret = read (outfp, buf, sizeof (buf) );
+
+			DBG_printf ("%d bytes ret from outfp\n", ret);
+
+			if (ret < 0) {
+				break;
+			}
+
+			ret = send (conn->sockfd, buf, ret, 0);
+
+			if (ret < 0) {
+				break;
+			}
+		}
+	}
+
+	close (infp);
+	close (outfp);
+
+	free (buf);
+	free (fds);
+
+	kill (pid, SIGTERM);
+
+	TRACE;
+
+	return 0;
+}
+
+/**
  * Обработчик соединения.
  *
  * @param[in] connection описание соединения.
@@ -336,7 +537,9 @@ void* handler (IN struct connection_vars_t* connection)
 
 	TRACE;
 
-	sleep (1);			/* TTTTTTTTTTTTTTTTTTT */
+	int status = user_interaction (connection);
+
+	CHECK_ERRNO (status, "User interaction");
 
 	TRACE;
 
@@ -344,7 +547,7 @@ void* handler (IN struct connection_vars_t* connection)
 	dump_connection_vars (connection);
 #endif
 
-	int status = shutdown (connection->sockfd, SHUT_RDWR);
+	status = shutdown (connection->sockfd, SHUT_RDWR);
 
 	CHECK_ERRNO (status, "Shutdown connection");
 
@@ -454,7 +657,7 @@ connections_loop (IN int server_sockfd,
 		pthread_t client_thread;
 
 		struct connection_vars_t* connection =
-			calloc (1, sizeof (struct connection_vars_t) );
+			calloc (sizeof (struct connection_vars_t), 1);
 
 		if (NULL == connection) {
 			TRACE;
@@ -607,8 +810,18 @@ int main (IN int argc, IN char** argv)
 	int listen_port = LISTEN_PORT;
 
 	if (argc > 1) {
-		listen_port = atoi (argv[1]);
+		user_command = argv[1];
 	}
+
+	if (argc > 2) {
+		listen_port = atoi (argv[2]);
+	}
+
+	printf ("Usage: %s command port\n\n", argv[0]);
+
+	printf ("Command: %s.\n", user_command);
+	printf ("Warning: use fflush(stdout) for output.\n");
+	printf ("Port: %d.\n", listen_port);
 
 	pthread_mutex_init (&connections_lock, NULL);
 	pthread_mutex_init (&init_connection_lock, NULL);
