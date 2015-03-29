@@ -14,6 +14,9 @@ valgrind: debug
 trace:
 	gcc $(CFLAGS) -DTRACE tcpserver.c -o tcpserver	
 
+test:
+	gcc echo_test.c -o test
+
 run: all
 	./tcpserver
 

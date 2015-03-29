@@ -1,4 +1,11 @@
 #!/usr/bin/env python3
+# @file test.py
+# @author Михаил Клементьев < jollheef <AT> riseup.net >
+# @date Март 2015
+# @license GPLv3
+# @brief tcp connection test application
+#
+# Создает большое количество соединений на указанный порт и не закрывает их.
 
 import socket
 from threading import Thread
