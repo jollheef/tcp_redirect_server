@@ -149,9 +149,9 @@ ushort ip_connections[IP_CONNECTIONS_MAX];
  * @param[in] s_addr интернет адрес.
  * @return индекс 0..65535 (IP_CONNECTIONS_MAX).
  */
-static inline ushort get_ip_index (IN in_addr_t s_addr)
+static inline ushort get_ip_index(IN in_addr_t s_addr)
 {
-	return ntohl (s_addr) & 65535;
+	return ntohl(s_addr) & 65535;
 }
 
 /**
@@ -164,9 +164,9 @@ static inline ushort get_ip_index (IN in_addr_t s_addr)
  * @param[in] s_addr интернет адрес.
  * @return количество соединений для ip.
  */
-static inline ushort get_ip_conn (IN in_addr_t s_addr)
+static inline ushort get_ip_conn(IN in_addr_t s_addr)
 {
-	return ip_connections[get_ip_index (s_addr)];
+	return ip_connections[get_ip_index(s_addr)];
 }
 
 /**
@@ -174,9 +174,9 @@ static inline ushort get_ip_conn (IN in_addr_t s_addr)
  *
  * @param[in] s_addr интернет адрес.
  */
-static inline void inc_ip_conn (IN in_addr_t s_addr)
+static inline void inc_ip_conn(IN in_addr_t s_addr)
 {
-	++ip_connections[get_ip_index (s_addr)];
+	++ip_connections[get_ip_index(s_addr)];
 }
 
 /**
@@ -184,9 +184,9 @@ static inline void inc_ip_conn (IN in_addr_t s_addr)
  *
  * @param[in] s_addr интернет адрес.
  */
-static inline void dec_ip_conn (IN in_addr_t s_addr)
+static inline void dec_ip_conn(IN in_addr_t s_addr)
 {
-	--ip_connections[get_ip_index (s_addr)];
+	--ip_connections[get_ip_index(s_addr)];
 }
 
 /**
@@ -203,13 +203,13 @@ struct connection_vars_t {
  *
  * @param[in] conn указатель на структуру.
  */
-void dump_connection_vars (IN struct connection_vars_t* conn)
+void dump_connection_vars(IN struct connection_vars_t* conn)
 {
-	printf ("Адрес структуры: %p\t|", conn);
-	printf ("Номер соединения: %lld\t|", conn->n);
-	printf ("Дескриптор сокета клиента: %d\t|", conn->sockfd);
-	printf ("Описание соединения клиента: %s:%d\n",
-		inet_ntoa (conn->addr.sin_addr), ntohs (conn->addr.sin_port) );
+	printf("Адрес структуры: %p\t|", conn);
+	printf("Номер соединения: %lld\t|", conn->n);
+	printf("Дескриптор сокета клиента: %d\t|", conn->sockfd);
+	printf("Описание соединения клиента: %s:%d\n",
+	       inet_ntoa(conn->addr.sin_addr), ntohs(conn->addr.sin_port));
 }
 
 /**
@@ -220,12 +220,12 @@ struct connection_vars_t* current_connections[HANDLE_CONNS_COUNT];
 /**
  * Вывод состояния сохраненных соединений в стандартный вывод.
  */
-void dump_connections (void)
+void dump_connections(void)
 {
 	for (int i = 0; i < HANDLE_CONNS_COUNT; ++i) {
 		if (NULL != current_connections[i]) {
 			TRACE;
-			dump_connection_vars (current_connections[i]);
+			dump_connection_vars(current_connections[i]);
 		}
 	}
 }
@@ -235,7 +235,7 @@ void dump_connections (void)
  *
  * @param[in] conn -- указатель на структуру соединения.
  */
-int save_conn (IN struct connection_vars_t* conn)
+int save_conn(IN struct connection_vars_t* conn)
 {
 	int status = 1;
 
@@ -243,13 +243,13 @@ int save_conn (IN struct connection_vars_t* conn)
 		if (NULL == current_connections[i]) {
 			TRACE;
 #ifdef DEBUG
-			dump_connection_vars (conn);
+			dump_connection_vars(conn);
 #endif
 			current_connections[i] = conn;
 
 			connections += 1;
 
-			inc_ip_conn (conn->addr.sin_addr.s_addr);
+			inc_ip_conn(conn->addr.sin_addr.s_addr);
 
 			status = 0;
 
@@ -265,7 +265,7 @@ int save_conn (IN struct connection_vars_t* conn)
  *
  * @param[in] conn -- указатель на структуру соединения.
  */
-void remove_conn (IN struct connection_vars_t* conn)
+void remove_conn(IN struct connection_vars_t* conn)
 {
 	TRACE;
 
@@ -276,26 +276,26 @@ void remove_conn (IN struct connection_vars_t* conn)
 			if (conn->n == current_connections[i]->n) {
 				TRACE;
 #ifdef DEBUG
-				dump_connection_vars (conn);
+				dump_connection_vars(conn);
 #endif
 				current_connections[i] = NULL;
-				free (conn);
+				free(conn);
 				connections -= 1;
 
-				dec_ip_conn (conn->addr.sin_addr.s_addr);
+				dec_ip_conn(conn->addr.sin_addr.s_addr);
 
 				return;
 			}
 		}
 	}
 
-	fprintf (stderr, "Connection not found\n");
+	fprintf(stderr, "Connection not found\n");
 }
 
 /**
  * Получить количество свободных мест в массиве соединений.
  */
-int get_free_places (void)
+int get_free_places(void)
 {
 	int places = 0;
 
@@ -312,7 +312,7 @@ int get_free_places (void)
 /**
  * Закрыть и очистить память для всех текущих соединений.
  */
-void free_all_conn (void)
+void free_all_conn(void)
 {
 	for (int i = 0; i < HANDLE_CONNS_COUNT; ++i) {
 		if (NULL == current_connections[i]) {
@@ -324,20 +324,20 @@ void free_all_conn (void)
 		TRACE;
 
 #ifdef DEBUG
-		dump_connection_vars (connection);
+		dump_connection_vars(connection);
 
 #endif
-		int status = shutdown (connection->sockfd, SHUT_RDWR);
+		int status = shutdown(connection->sockfd, SHUT_RDWR);
 
-		CHECK_ERRNO (status, "Shutdown connection");
+		CHECK_ERRNO(status, "Shutdown connection");
 
-		status = close (connection->sockfd);
+		status = close(connection->sockfd);
 
-		CHECK_ERRNO (status, "Close connection");
+		CHECK_ERRNO(status, "Close connection");
 
 		connections -= 1;
 
-		free (current_connections[i]);
+		free(current_connections[i]);
 
 		current_connections[i] = NULL;
 	}
@@ -351,32 +351,31 @@ void free_all_conn (void)
  * @param[out] outfp stdout и stderr процесса.
  * @return идентификатор запущенного процесса или -1 в случае ошибки (errno).
  */
-pid_t popen2 (IN const char* command, OUT int* infp, OUT int* outfp)
+pid_t popen2(IN const char* command, OUT int* infp, OUT int* outfp)
 {
 	int p_stdin[2], p_stdout[2];
 
-	if (pipe (p_stdin) != 0 || pipe (p_stdout) != 0) {
+	if (pipe(p_stdin) != 0 || pipe(p_stdout) != 0) {
 		return -1;
 	}
 
 	pid_t pid = fork();
 
 	if (pid == 0) {
-		close (p_stdin[1]);
+		close(p_stdin[1]);
 
-		dup2 (p_stdin[0], fileno (stdin) );
+		dup2(p_stdin[0], fileno(stdin));
 
-		close (p_stdout[0]);
+		close(p_stdout[0]);
 
-		dup2 (p_stdout[1], fileno (stdout) );
-		dup2 (p_stdout[1], fileno (stderr) );
+		dup2(p_stdout[1], fileno(stdout));
+		dup2(p_stdout[1], fileno(stderr));
 
-		execl ("/bin/sh", "sh", "-c", command, NULL);
+		execl("/bin/sh", "sh", "-c", command, NULL);
 
 		/* До этой строки исполнение никогда не должно дойти */
-		exit (EXIT_FAILURE);
-	}
-	else if (pid < 0) {
+		exit(EXIT_FAILURE);
+	} else if (pid < 0) {
 		return -1;
 	}
 
@@ -398,58 +397,58 @@ const char* user_command = "./test";
  * @param[in] connection описание соединения.
  * @return статус завершения.
  */
-int user_interaction (IN struct connection_vars_t* conn)
+int user_interaction(IN struct connection_vars_t* conn)
 {
 	TRACE;
 
 	int infp, outfp;
-	int pid = popen2 (user_command, &infp, &outfp);
+	int pid = popen2(user_command, &infp, &outfp);
 
-	CHECK_ERRNO (pid, "Execute application");
+	CHECK_ERRNO(pid, "Execute application");
 
-	char* buf = calloc (1, sizeof (char) );
+	char* buf = calloc(1, sizeof(char));
 
-	struct pollfd* fds = calloc (sizeof (struct pollfd), 2);
+	struct pollfd* fds = calloc(sizeof(struct pollfd), 2);
 	fds[0].fd = outfp;
 	fds[1].fd = conn->sockfd;
 	fds[0].events = fds[1].events = POLLIN;
 
 	while (true) {
-		int status = poll (fds, 2, TIMEOUT_MS);
+		int status = poll(fds, 2, TIMEOUT_MS);
 
-		CHECK_ERRNO (status, "Polling");
+		CHECK_ERRNO(status, "Polling");
 
-		DBG_printf ("Revents: %d %d\n", fds[0].revents, fds[1].revents);
+		DBG_printf("Revents: %d %d\n", fds[0].revents, fds[1].revents);
 
-		if ( (fds[0].revents | fds[1].revents) & POLLNVAL) {
+		if ((fds[0].revents | fds[1].revents) & POLLNVAL) {
 			/* Один из дескрипторов закрылся */
-			DBG_printf ("One of fd has been closed\n");
+			DBG_printf("One of fd has been closed\n");
 			break;
 		}
 
 		if (0 == status) {
 			/* Время ожидания истекло */
-			send (conn->sockfd, CONN_TIMEOUT_MSG,
-			      sizeof (CONN_TIMEOUT_MSG), 0);
+			send(conn->sockfd, CONN_TIMEOUT_MSG,
+			     sizeof(CONN_TIMEOUT_MSG), 0);
 			break;
 		}
 
 		int count = 0;	/* Количество данных в fd */
 
-		status = ioctl (conn->sockfd, FIONREAD, &count);
+		status = ioctl(conn->sockfd, FIONREAD, &count);
 
-		CHECK_ERRNO (status, "Get available data in sockfd");
+		CHECK_ERRNO(status, "Get available data in sockfd");
 
-		DBG_printf ("%d bytes to read from socket\n", count);
+		DBG_printf("%d bytes to read from socket\n", count);
 
-		if ( (0 == count) && (fds[1].revents & POLLIN) ) {
+		if ((0 == count) && (fds[1].revents & POLLIN)) {
 			/*
 			 * Если poll возвращает, что данные есть,
 			 * но эти данные нельзя прочитать, то
 			 * скорее всего сокет закрылся, а эти данные
 			 * это что-то для сетевого стека, а не для нас.
 			 */
-			DBG_printf ("Socket most likely closed\n");
+			DBG_printf("Socket most likely closed\n");
 			break;
 		}
 
@@ -461,28 +460,28 @@ int user_interaction (IN struct connection_vars_t* conn)
 		if (count > 0) {
 			TRACE;
 
-			buf = realloc (buf, count);
+			buf = realloc(buf, count);
 
-			int ret = recv (conn->sockfd, buf, count, 0);
+			int ret = recv(conn->sockfd, buf, count, 0);
 
-			DBG_printf ("%d bytes ret from socket\n", ret);
+			DBG_printf("%d bytes ret from socket\n", ret);
 
 			if (ret < 0) {
 				break;
 			}
 
-			ret = write (infp, buf, ret);
+			ret = write(infp, buf, ret);
 
 			if (ret < 0) {
 				break;
 			}
 		}
 
-		status = ioctl (outfp, FIONREAD, &count);
+		status = ioctl(outfp, FIONREAD, &count);
 
-		CHECK_ERRNO (status, "Get available data in outfp");
+		CHECK_ERRNO(status, "Get available data in outfp");
 
-		DBG_printf ("%d bytes to read from outfp\n", count);
+		DBG_printf("%d bytes to read from outfp\n", count);
 
 		if (count > MAX_DATA_COUNT) {
 			/* TODO: Возможно, стоит генерировать сообщение. */
@@ -492,17 +491,17 @@ int user_interaction (IN struct connection_vars_t* conn)
 		if (count > 0) {
 			TRACE;
 
-			buf = realloc (buf, count);
+			buf = realloc(buf, count);
 
-			int ret = read (outfp, buf, sizeof (buf) );
+			int ret = read(outfp, buf, sizeof(buf));
 
-			DBG_printf ("%d bytes ret from outfp\n", ret);
+			DBG_printf("%d bytes ret from outfp\n", ret);
 
 			if (ret < 0) {
 				break;
 			}
 
-			ret = send (conn->sockfd, buf, ret, 0);
+			ret = send(conn->sockfd, buf, ret, 0);
 
 			if (ret < 0) {
 				break;
@@ -510,13 +509,13 @@ int user_interaction (IN struct connection_vars_t* conn)
 		}
 	}
 
-	close (infp);
-	close (outfp);
+	close(infp);
+	close(outfp);
 
-	free (buf);
-	free (fds);
+	free(buf);
+	free(fds);
 
-	kill (pid, SIGTERM);
+	kill(pid, SIGTERM);
 
 	TRACE;
 
@@ -529,37 +528,37 @@ int user_interaction (IN struct connection_vars_t* conn)
  * @param[in] connection описание соединения.
  * @return не используется.
  */
-void* handler (IN struct connection_vars_t* connection)
+void* handler(IN struct connection_vars_t* connection)
 {
 	/* Поток должен запуститься только после окончания инициализации */
-	pthread_mutex_lock (&init_connection_lock);
-	pthread_mutex_unlock (&init_connection_lock);
+	pthread_mutex_lock(&init_connection_lock);
+	pthread_mutex_unlock(&init_connection_lock);
 
 	TRACE;
 
-	int status = user_interaction (connection);
+	int status = user_interaction(connection);
 
-	CHECK_ERRNO (status, "User interaction");
+	CHECK_ERRNO(status, "User interaction");
 
 	TRACE;
 
 #ifdef DEBUG
-	dump_connection_vars (connection);
+	dump_connection_vars(connection);
 #endif
 
-	status = shutdown (connection->sockfd, SHUT_RDWR);
+	status = shutdown(connection->sockfd, SHUT_RDWR);
 
-	CHECK_ERRNO (status, "Shutdown connection");
+	CHECK_ERRNO(status, "Shutdown connection");
 
 	TRACE;
 
-	status = close (connection->sockfd);
+	status = close(connection->sockfd);
 
-	CHECK_ERRNO (status, "Close connection");
+	CHECK_ERRNO(status, "Close connection");
 
-	pthread_mutex_lock (&connections_lock);
-	remove_conn (connection);
-	pthread_mutex_unlock (&connections_lock);
+	pthread_mutex_lock(&connections_lock);
+	remove_conn(connection);
+	pthread_mutex_unlock(&connections_lock);
 
 	return NULL;
 }
@@ -572,8 +571,8 @@ void* handler (IN struct connection_vars_t* connection)
  * @param статус завершения.
  */
 int
-connections_loop (IN int server_sockfd,
-                  IN void * (*_handler) (struct connection_vars_t* ) )
+connections_loop(IN int server_sockfd,
+                 IN void * (*_handler)(struct connection_vars_t*))
 {
 	int status = 0;
 
@@ -581,88 +580,88 @@ connections_loop (IN int server_sockfd,
 		TRACE;
 
 #ifdef DEBUG
-		pthread_mutex_lock (&connections_lock);
-		printf ("Connections: %d\n", connections);
-		printf ("Free places: %d\n", get_free_places() );
+		pthread_mutex_lock(&connections_lock);
+		printf("Connections: %d\n", connections);
+		printf("Free places: %d\n", get_free_places());
 
-		if (HANDLE_CONNS_COUNT != (connections + get_free_places() ) ) {
-			fprintf (stderr, "Something went wrong\n");
+		if (HANDLE_CONNS_COUNT != (connections + get_free_places())) {
+			fprintf(stderr, "Something went wrong\n");
 
 			TRACE;
-			dump_connections ();
+			dump_connections();
 
-			pthread_mutex_unlock (&connections_lock);
+			pthread_mutex_unlock(&connections_lock);
 			return -EINVAL;
 		}
 
-		pthread_mutex_unlock (&connections_lock);
+		pthread_mutex_unlock(&connections_lock);
 #endif
 
 		struct sockaddr_in client_addr;
 
-		memset (&client_addr, 0, sizeof (struct sockaddr_in) );
+		memset(&client_addr, 0, sizeof(struct sockaddr_in));
 
-		socklen_t client_addr_size = sizeof (struct sockaddr_in);
+		socklen_t client_addr_size = sizeof(struct sockaddr_in);
 
-		int client_sockfd = accept (
+		int client_sockfd = accept(
 			server_sockfd,
 			(struct sockaddr*) &client_addr,
 			&client_addr_size
                         );
 
-		CHECK_ERRNO (client_sockfd, "Accept connection");
+		CHECK_ERRNO(client_sockfd, "Accept connection");
 
 		/* Проверка лимита соединений для IP */
-		pthread_mutex_lock (&connections_lock);
-		int ip_conn = get_ip_conn (client_addr.sin_addr.s_addr);
-		pthread_mutex_unlock (&connections_lock);
+		pthread_mutex_lock(&connections_lock);
+		int ip_conn = get_ip_conn(client_addr.sin_addr.s_addr);
+		pthread_mutex_unlock(&connections_lock);
 
 		if (ip_conn > MAX_IP_CONN) {
 			TRACE;
 
 			/* Отправка клиенту сообщение о лимите */
-			send (client_sockfd, IP_CONN_LIMIT_MSG,
-			      sizeof (IP_CONN_LIMIT_MSG), 0);
+			send(client_sockfd, IP_CONN_LIMIT_MSG,
+			     sizeof(IP_CONN_LIMIT_MSG), 0);
 
-			shutdown (client_sockfd, SHUT_RDWR);
-			close (client_sockfd);
+			shutdown(client_sockfd, SHUT_RDWR);
+			close(client_sockfd);
 
 			continue;
 		}
 
 		/* Проверка общего лимита соединений. */
-		pthread_mutex_lock (&connections_lock);
+		pthread_mutex_lock(&connections_lock);
 		int is_limit = connections > HANDLE_CONNS_COUNT - 1;
-		pthread_mutex_unlock (&connections_lock);
+		pthread_mutex_unlock(&connections_lock);
 
 		if (is_limit) {
 			TRACE;
 
 			/* Отправка клиенту сообщение о лимите */
-			send (client_sockfd, ALL_CONN_LIMIT_MSG,
-			      sizeof (ALL_CONN_LIMIT_MSG), 0);
+			send(client_sockfd, ALL_CONN_LIMIT_MSG,
+			     sizeof(ALL_CONN_LIMIT_MSG), 0);
 
-			shutdown (client_sockfd, SHUT_RDWR);
-			close (client_sockfd);
+			shutdown(client_sockfd, SHUT_RDWR);
+			close(client_sockfd);
 
 			continue;
 		}
 
-		pthread_mutex_lock (&init_connection_lock);
+		pthread_mutex_lock(&init_connection_lock);
 
 		++connections_count;
 
-		DBG_printf ("Connect: %lld\n", connections_count);
+		DBG_printf("Connect: %lld\n", connections_count);
 
 		pthread_t client_thread;
 
 		struct connection_vars_t* connection =
-			calloc (sizeof (struct connection_vars_t), 1);
+			calloc(sizeof(struct connection_vars_t), 1);
 
 		if (NULL == connection) {
 			TRACE;
-			fprintf (stderr, "Allocation failed\n");
-			exit (EXIT_FAILURE);
+			fprintf(stderr, "Allocation failed\n");
+			exit(EXIT_FAILURE);
 		}
 
 		TRACE;
@@ -673,37 +672,37 @@ connections_loop (IN int server_sockfd,
 
 		TRACE;
 
-		status = pthread_create (
+		status = pthread_create(
 			&client_thread,
 			NULL,
-			(void * (*) (void*) ) _handler,
+			(void * (*)(void*)) _handler,
 			(void*) connection
 			);
 
-		CHECK_ERRNO (status, "Create handle connection thread");
+		CHECK_ERRNO(status, "Create handle connection thread");
 
-		pthread_detach (client_thread);
+		pthread_detach(client_thread);
 
-		CHECK_ERRNO (status, "Detach connection thread");
+		CHECK_ERRNO(status, "Detach connection thread");
 
-		pthread_mutex_lock (&connections_lock);
+		pthread_mutex_lock(&connections_lock);
 
-		if (save_conn (connection) ) {
+		if (save_conn(connection)) {
 			/* Опасная ситуация */
-			fprintf (stderr, "No free place for connection\n");
+			fprintf(stderr, "No free place for connection\n");
 
 			TRACE;
-			dump_connection_vars (connection);
+			dump_connection_vars(connection);
 
-			dump_connections ();
+			dump_connections();
 
-			pthread_mutex_unlock (&connections_lock);
-			pthread_mutex_unlock (&init_connection_lock);
-			exit (EXIT_FAILURE);
+			pthread_mutex_unlock(&connections_lock);
+			pthread_mutex_unlock(&init_connection_lock);
+			exit(EXIT_FAILURE);
 		}
 
-		pthread_mutex_unlock (&connections_lock);
-		pthread_mutex_unlock (&init_connection_lock);
+		pthread_mutex_unlock(&connections_lock);
+		pthread_mutex_unlock(&init_connection_lock);
 	}
 }
 
@@ -718,17 +717,17 @@ int server_sockfd;
  *
  * @return статус завершения.
  */
-int close_server_sockfd (void)
+int close_server_sockfd(void)
 {
 	int status;
 
-	status = shutdown (server_sockfd, SHUT_RDWR);
+	status = shutdown(server_sockfd, SHUT_RDWR);
 
-	CHECK_ERRNO (status, "Shutdown server socket");
+	CHECK_ERRNO(status, "Shutdown server socket");
 
-	status = close (server_sockfd);
+	status = close(server_sockfd);
 
-	CHECK_ERRNO (status, "Close server socket");
+	CHECK_ERRNO(status, "Close server socket");
 
 	return status;
 }
@@ -736,50 +735,50 @@ int close_server_sockfd (void)
 /**
  * Закрыть сокет сервера во время нормального выхода из программы.
  */
-void close_server_socfd_on_exit (void)
+void close_server_socfd_on_exit(void)
 {
 	TRACE;
 
-	printf ("\nAll connects: %lld\n", connections_count);
+	printf("\nAll connects: %lld\n", connections_count);
 
-	pthread_mutex_unlock (&connections_lock);
-	pthread_mutex_unlock (&init_connection_lock);
-	fprintf (stderr, "\nWaiting for close connections...");
+	pthread_mutex_unlock(&connections_lock);
+	pthread_mutex_unlock(&init_connection_lock);
+	fprintf(stderr, "\nWaiting for close connections...");
 	int remain = 10;	/* Время для ожидания */
 
 	do {
-		pthread_mutex_lock (&connections_lock);
+		pthread_mutex_lock(&connections_lock);
 
 		if (0 == connections) {
-			printf (" done\n");
+			printf(" done\n");
 			return;
 		}
 
-		pthread_mutex_unlock (&connections_lock);
+		pthread_mutex_unlock(&connections_lock);
 
-		sleep (1);
-		fprintf (stderr, "%d ", --remain);
+		sleep(1);
+		fprintf(stderr, "%d ", --remain);
 	}
 	while (remain > 0);
 
-	fprintf (stderr, "\n");
+	fprintf(stderr, "\n");
 
-	DBG_printf ("Connections at start freeing: %d\n", connections);
+	DBG_printf("Connections at start freeing: %d\n", connections);
 
 	/* Для корректного закрытия в середине инициализации соединения */
-	pthread_mutex_lock (&init_connection_lock);
+	pthread_mutex_lock(&init_connection_lock);
 	close_server_sockfd();
-	pthread_mutex_unlock (&init_connection_lock);
+	pthread_mutex_unlock(&init_connection_lock);
 
-	pthread_mutex_lock (&connections_lock);
+	pthread_mutex_lock(&connections_lock);
 	free_all_conn();
-	pthread_mutex_unlock (&connections_lock);
+	pthread_mutex_unlock(&connections_lock);
 
-	DBG_printf ("Connections at close: %d\n", connections);
+	DBG_printf("Connections at close: %d\n", connections);
 
 	if (0 != connections) {
-		fprintf (stderr, "Not all connections were closed (%d)",
-			 connections);
+		fprintf(stderr, "Not all connections were closed (%d)",
+			connections);
 	}
 }
 
@@ -789,11 +788,11 @@ void close_server_socfd_on_exit (void)
  *
  * @param[in] signum номер сигнала (только SIGINT).
  */
-void gracefully_exit (IN int signum)
+void gracefully_exit(IN int signum)
 {
 	TRACE;
 
-	exit (EXIT_SUCCESS);
+	exit(EXIT_SUCCESS);
 }
 
 /**
@@ -803,7 +802,7 @@ void gracefully_exit (IN int signum)
  * @param[in] argv массив аргументов.
  * @return статус завершения.
  */
-int main (IN int argc, IN char** argv)
+int main(IN int argc, IN char** argv)
 {
 	TRACE;
 
@@ -814,51 +813,51 @@ int main (IN int argc, IN char** argv)
 	}
 
 	if (argc > 2) {
-		listen_port = atoi (argv[2]);
+		listen_port = atoi(argv[2]);
 	}
 
-	printf ("Usage: %s command port\n\n", argv[0]);
+	printf("Usage: %s command port\n\n", argv[0]);
 
-	printf ("Command: %s.\n", user_command);
-	printf ("Warning: use fflush(stdout) for output.\n");
-	printf ("Port: %d.\n", listen_port);
+	printf("Command: %s.\n", user_command);
+	printf("Warning: use fflush(stdout) for output.\n");
+	printf("Port: %d.\n", listen_port);
 
-	pthread_mutex_init (&connections_lock, NULL);
-	pthread_mutex_init (&init_connection_lock, NULL);
+	pthread_mutex_init(&connections_lock, NULL);
+	pthread_mutex_init(&init_connection_lock, NULL);
 
-	memset (current_connections, 0, HANDLE_CONNS_COUNT);
+	memset(current_connections, 0, HANDLE_CONNS_COUNT);
 
-	memset (ip_connections, 0, sizeof (ip_connections) );
+	memset(ip_connections, 0, sizeof(ip_connections));
 
-	server_sockfd = socket (AF_INET, SOCK_STREAM,
-				getprotobyname ("TCP")->p_proto);
+	server_sockfd = socket(AF_INET, SOCK_STREAM,
+			       getprotobyname("TCP")->p_proto);
 
-	CHECK_ERRNO (server_sockfd, "Socket create");
+	CHECK_ERRNO(server_sockfd, "Socket create");
 
 	/* REUSEADDR не используется в связи с проблемами безопасности */
 
 	struct sockaddr_in addr;
-	memset (&addr, 0, sizeof (struct sockaddr) );
+	memset(&addr, 0, sizeof(struct sockaddr));
 
 	addr.sin_family = AF_INET;
-	addr.sin_addr.s_addr = htonl (INADDR_ANY);
-	addr.sin_port = htons (listen_port);
+	addr.sin_addr.s_addr = htonl(INADDR_ANY);
+	addr.sin_port = htons(listen_port);
 
-	int status = bind (server_sockfd, (struct sockaddr*) &addr,
-			   sizeof (addr) );
+	int status = bind(server_sockfd, (struct sockaddr*) &addr,
+			  sizeof(addr));
 
-	CHECK_ERRNO (status, "Bind");
+	CHECK_ERRNO(status, "Bind");
 
-	atexit (close_server_socfd_on_exit);
-	signal (SIGINT, gracefully_exit);
+	atexit(close_server_socfd_on_exit);
+	signal(SIGINT, gracefully_exit);
 
-	status = listen (server_sockfd, LISTEN_BACKLOG);
+	status = listen(server_sockfd, LISTEN_BACKLOG);
 
-	CHECK_ERRNO (status, "Start listening");
+	CHECK_ERRNO(status, "Start listening");
 
-	status = connections_loop (server_sockfd, handler);
+	status = connections_loop(server_sockfd, handler);
 
-	CHECK_ERRNO (status, "Connection loop");
+	CHECK_ERRNO(status, "Connection loop");
 
 	status = close_server_sockfd();
 
